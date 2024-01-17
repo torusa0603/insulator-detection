@@ -52,7 +52,6 @@ OBJECTDETECTION_TARGET_MODEL_INSULATOR = "insulator"    #insulator(がいし)
 
 # 物体検知対象モデル指定
 objectdetection_target_model = OBJECTDETECTION_TARGET_MODEL_INSULATOR
-#objectdetection_target_model = OBJECTDETECTION_TARGET_MODEL_RESNET50
 
 global target_model_class_indexes
 
@@ -72,21 +71,16 @@ global INPUT_MODE_GSTREAMER_UDP
 INPUT_MODE_GSTREAMER_UDP = "gstreamer_udp"  #GstreamerでUDP入力(Matrice300のカメラから取得)
 global INPUT_MODE_GSTREAMER_UDP_STR
 INPUT_MODE_GSTREAMER_UDP_STR = 'udpsrc port=50002 buffer-size=2129920 caps=\"application/x-rtp,payload=\(int\)96,encoding-name=\(string\)H264,width=1280,height=720\"  ! rtph264depay ! avdec_h264 !  videoscale ! video/x-raw,width=1280,height=720 ! videoconvert ! appsink sync=false' #20220328 jishou OK
-#INPUT_MODE_GSTREAMER_UDP_STR = 'udpsrc address=\"192.168.10.176\" port=50002 buffer-size=2129920 caps=\"application/x-rtp,payload=\(int\)96,encoding-name=\(string\)H264,width=1280,height=720\"  ! rtph264depay ! avdec_h264 !  videoscale ! video/x-raw,width=1280,height=720 ! videoconvert ! appsink sync=false' #20220328 jishou OK
-# INPUT_MODE_GSTREAMER_UDP_STR = 'udpsrc port=50002 buffer-size=2129920 caps=\"application/x-rtp,payload=\(int\)96,encoding-name=\(string\)H264,width=1280,height=720\"  ! rtph264depay ! avdec_h264 !  videoscale ! video/x-raw,width=1280,height=720 ! videoconvert ! appsink sync=false' #20220328 jishou OK
 
 global INPUT_MODE_GSTREAMER_URI
 INPUT_MODE_GSTREAMER_URI = "gstreamer_uri"  #Gstreamerでストリーミングサーバの映像を取得
 global INPUT_MODE_GSTREAMER_URI_STR
 INPUT_MODE_GSTREAMER_URI_STR = 'souphttpsrc location=http://192.168.10.185:8090/test.mjpg !  jpegdec ! videoconvert ! appsink sync=false' #another server 
-# INPUT_MODE_GSTREAMER_URI_STR = 'souphttpsrc location=http://127.0.0.1:8090/test.mjpg !  jpegdec ! videoconvert ! appsink sync=false' #remotecontroller2 
-# INPUT_MODE_GSTREAMER_URI_STR = 'souphttpsrc location=http://192.168.10.185:8090/test.mjpg !  jpegdec ! videoconvert ! appsink sync=false' #another server 
 
 # 映像入力モード指定
 input_mode = INPUT_MODE_GSTREAMER_UDP
 
 # inculator モデル
-# MODEL_PATH = '/home/terra/models/model_20230613_ikeya/deploy_model_algo_1' #20230613 MXnet
 MODEL_PATH = '/home/terra/models/onnx/ins_t1026.onnx' #Onnx
 
 # クラスと表示色 insulator 用
@@ -97,9 +91,7 @@ COLORS = [(0,0,175), (175,0,0)] #ONNX
 target_model_class_indexes = [class_insulator660_t, class_insulator_t, class_insulator500_t]
 
 
-#OUTPUT_PATH = './output' # 画像を出力するフォルダ
 OUTPUT_PATH = '/home/terra/screenshot/output' # 画像を出力するフォルダ
-#INTERVAL = 24 # フレーム再生間隔 #for manifold2c
 if release_version == RELEASE_VERSION_202203:
     INTERVAL = 8 # フレーム再生間隔 #for gpdwin3 202203実証時
 elif release_version == RELEASE_VERSION_202204 :
@@ -107,13 +99,11 @@ elif release_version == RELEASE_VERSION_202204 :
 else :
     INTERVAL = 8 # フレーム再生間隔 #for gpdwin3 202203実証時
 
-# CLASSDATA_NAME = ["confidence","detection_centerX","detection_centerY","boundingbox_width","boundingbox_height","detection_square"]
 
 
 #中心厳格判定モード(バウンディングボックスが中央の視覚より小さい場合は中心判定を厳しくする)
 global flg_target_strict_judgement
 flg_target_strict_judgement = True      #OBJECTDETECTION_TOWER_MODE_TAICHO_WIDE_TO_ZOOMのときはFalseにする
-# flg_target_strict_judgement = False     
 
 
 #add
@@ -167,7 +157,6 @@ confidence_bias_kensui = 0.2
 confidence_bias_taicho_wide_to_zoom = 0.1
 #addend 20220310
 global confidence_bias_show #add 20220330
-##confidence_bias_show = 0.1  #add 20220330
 confidence_bias_show = 0.3  #add 20220330
  
 global  sampling_count  #サンプリング数
@@ -199,7 +188,6 @@ global OBJECTDETECTION_TOWER_MODE_KENSUI_500KV
 OBJECTDETECTION_TOWER_MODE_TAICHO_220KV = "taicho_220kv"
 OBJECTDETECTION_TOWER_MODE_KENSUI_500KV = "kensui_500kv"
 OBJECTDETECTION_TOWER_MODE_TAICHO_WIDE_TO_ZOOM = "taicho_wide_to_zoom"
-#objectdetection_tower_mode_taicho = OBJECTDETECTION_TOWER_MODE_TAICHO_WIDE_TO_ZOOM
 objectdetection_tower_mode_taicho = OBJECTDETECTION_TOWER_MODE_TAICHO_220KV
 objectdetection_tower_mode_kensui = OBJECTDETECTION_TOWER_MODE_KENSUI_500KV
 objectdetection_tower_mode = objectdetection_tower_mode_taicho  #起動時のデフォルト設定(DJI Onobard SDKから来るテレメトリで変わることがある)
@@ -283,7 +271,6 @@ current_aircraft_waypoint = -1      #test20211128
  
 global flg_gimbal_variable_waiting_time
 flg_gimbal_variable_waiting_time = False #202203の実証時はFalseと同等で実行
-# flg_gimbal_variable_waiting_time = True 
 
 class TerraUTMSDKMainNode():
 
@@ -360,7 +347,6 @@ class TerraUTMSDKMainNode():
 
             #test20220202
             if data.objectdetection_mode == 0:
-                # objectdetection_tower_mode = OBJECTDETECTION_TOWER_MODE_TAICHO_220KV
                 objectdetection_tower_mode = objectdetection_tower_mode_taicho
                 confidence_bias = confidence_bias_taicho    #20220314
 
@@ -394,7 +380,6 @@ class TerraUTMSDKMainNode():
                 elif(objectdetection_status == OBJECTDETECTION_STATUS_NO_ACTION) : # OD無効
                     #物体検知処理無効
                     self.gimbalcornerReset()
-                    # currentCameraLens = CAMERALENS_WIDE
                     self.cameraControlZoom(ZoomValuex2)
                     flg_objectdetection_test2 = False
                     #ジンバル角度復元
@@ -411,7 +396,6 @@ class TerraUTMSDKMainNode():
 
 
     def watchdogCallback(self, data):
-        # payload = data
         pass
 
 
@@ -500,7 +484,6 @@ class TerraUTMSDKMainNode():
                     self.gimbalcornerReset()
                     #ズーム初期値
                     self.cameraControlZoom(ZoomValuex2)
-            #addstart 20220330
             elif x >= 0 and x <= 60 and y >= 80 and y <= 120 :
                 #カメラ切替
                 if currentCameraLens == CAMERALENS_WIDE:
@@ -593,7 +576,7 @@ class TerraUTMSDKMainNode():
         relatedX = x
         relatedY = y 
 
-        #  //X軸移動
+        # X軸移動
         if relatedX < centerX:
             diffCenterX = centerX - relatedX
 
@@ -619,9 +602,9 @@ class TerraUTMSDKMainNode():
             yaw = yaw * cornerbias / zoomValueCurrent
 
         else:
-            yaw = 0 #//センター線上
+            yaw = 0 #　センター線上
         
-        #  //Y軸移動
+        #  Y軸移動
         if relatedY < centerY :
             diffCenterY = centerY - relatedY
 
@@ -643,7 +626,7 @@ class TerraUTMSDKMainNode():
             tilt = -1 * gimbalCornerY * (diffCenterY / centerY)
             tilt = tilt * cornerbias / zoomValueCurrent
         else:
-            tilt = 0            #//センター線上
+            tilt = 0            #センター線上
 
         print("yaw:{}, tilt:{}".format(yaw, tilt))
 
@@ -660,7 +643,6 @@ class TerraUTMSDKMainNode():
         )
         print(j)
 
-        #addstart20220302
         jd = json.loads(j)
         utmMessage = UTMMessage()
         utmMessage.type = jd["type"]
@@ -669,7 +651,6 @@ class TerraUTMSDKMainNode():
         utmMessage.action_type = jd["action_type"]
         utmMessage.action_value = jd["action_value"]
         self.utm_pub.publish(utmMessage)
-        #addend20220202
 
         return yaw, tilt #test 20220414
 
@@ -679,7 +660,6 @@ class TerraUTMSDKMainNode():
         )
         print(j)
 
-        #addstart20220302
         jd = json.loads(j)
         utmMessage = UTMMessage()
         utmMessage.type = jd["type"]
@@ -688,7 +668,6 @@ class TerraUTMSDKMainNode():
         utmMessage.action_type = jd["action_type"]
         utmMessage.action_value = jd["action_value"]
         self.utm_pub.publish(utmMessage)
-        #addend20220202
 
 
     def cameraControlZoom(self,zoomvalue):
@@ -699,7 +678,6 @@ class TerraUTMSDKMainNode():
         )
         print(j)
 
-        #addstart20220302
         jd = json.loads(j)
         utmMessage = UTMMessage()
         utmMessage.type = jd["type"]
@@ -708,7 +686,6 @@ class TerraUTMSDKMainNode():
         utmMessage.action_type = jd["action_type"]
         utmMessage.action_value = jd["action_value"]
         self.utm_pub.publish(utmMessage)
-        #addend20220202        
 
     def cameraControlFocus(self,focusmode,x,y):
         j = json.dumps(
@@ -716,7 +693,6 @@ class TerraUTMSDKMainNode():
         )
         print(j)
 
-        #addstart20220302
         jd = json.loads(j)
         utmMessage = UTMMessage()
         utmMessage.type = jd["type"]
@@ -725,7 +701,6 @@ class TerraUTMSDKMainNode():
         utmMessage.action_type = jd["action_type"]
         utmMessage.action_value = jd["action_value"]
         self.utm_pub.publish(utmMessage)
-        #addend20220202
 
     def cameraControlChangeLens(self,lensvalue):
         global lensValueCurrent
@@ -735,7 +710,6 @@ class TerraUTMSDKMainNode():
         )
         print(j)
 
-        #addstart20220302
         jd = json.loads(j)
         utmMessage = UTMMessage()
         utmMessage.type = jd["type"]
@@ -744,7 +718,6 @@ class TerraUTMSDKMainNode():
         utmMessage.action_type = jd["action_type"]
         utmMessage.action_value = jd["action_value"]
         self.utm_pub.publish(utmMessage)
-        #addend20220202
 
     def droneControlAction(self,actionvalue):
         global actionValueCurrent
@@ -917,7 +890,6 @@ class TerraUTMSDKMainNode():
         global OBJECTDETECTION_TOWER_MODE_KENSUI_500KV      #add 20211126
 
         global current_aircraft_waypoint    #test20211128
-        # current_aircraft_waypoint = -1  #test20211128
 
         global flg_objectdetection_test2_prev #test20220401
         flg_objectdetection_test2_prev = False  #test20220401
@@ -988,11 +960,9 @@ class TerraUTMSDKMainNode():
 
 
         counter = 0
-        # while True:
         while not rospy.is_shutdown():
 
             while True:
-                # cap.set(cv2.CAP_PROP_POS_FRAMES, 5)
                 # カメラ画像取得
                 try :
                     if not cap.isOpened():
@@ -1040,7 +1010,6 @@ class TerraUTMSDKMainNode():
 
             if (flg_objectdetection_test2 == True ) :
                 
-                #addstart 20220401
                 if flg_objectdetection_test2_prev == False :
                     #物体検知開始
                     print("▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼物体検知開始({}, INTERVAL:{}, sampling_count:{})▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼".format(dt.now(), INTERVAL, sampling_count))
@@ -1256,8 +1225,6 @@ class TerraUTMSDKMainNode():
                                         self.gimbalcornerReset()
                                         #ズーム初期値
                                         self.cameraControlZoom(ZoomValuex2)
-                                        # #レンズ切り替えまで他の処理はさせない
-                                        # currentCameraLens = CAMERALENS_DUMMY_PAUSE
                                         #レンズ切り替えまで他の処理はさせない
                                         currentCameraLens = CAMERALENS_ZOOM
                                         #wide -> zoomに切り替え
@@ -1287,7 +1254,6 @@ class TerraUTMSDKMainNode():
 
                                         generate_sampling_group_data.clear()   #サンプリングデータ初期化
                                         gimbal_mode_old = 2 #test 要確認 20211126
-                                        # print("gimbal_mode:{},gimbal_mode_old:{}".format(gimbal_mode,gimbal_mode_old)) //test20211123
                                         flg_objectdetection_test2 = False
                                         print("検知終了！！({})".format(objectdetection_mode))
 
@@ -1304,7 +1270,6 @@ class TerraUTMSDKMainNode():
                                         cv2.imwrite(filename, frame)
                                         print("Saved. {}".format(filename))
 
-                                        #addstart 20211126
                                         #物体検知のモード判定
                                         if objectdetection_tower_mode == OBJECTDETECTION_TOWER_MODE_TAICHO_220KV:
                                             self.cameraControlZoom(ZoomValuex12) #12倍
@@ -1313,10 +1278,8 @@ class TerraUTMSDKMainNode():
                                             #カメラ・ジンバル制御待機(画面描画)
                                             self.imshow_while_waiting(wait_time=(wait_zoom + 2),cap=cap,frameName="frame")   #add 20220414
 
-                                            #add 20220117
                                             #パラメータ初期化
                                             self.gimbalcornerReset()
-                                            # currentCameraLens = CAMERALENS_WIDE
                                             #ズーム初期値
                                             self.cameraControlZoom(ZoomValuex2)
                                             #ジンバル復元
@@ -1328,13 +1291,11 @@ class TerraUTMSDKMainNode():
                                             self.imshow_while_waiting(wait_time=(wait_gimbal),cap=cap,frameName="frame")   #add 20220414
 
                                             generate_sampling_group_data.clear()   #サンプリングデータ初期化
-                                            # print("gimbal_mode:{},gimbal_mode_old:{}".format(gimbal_mode,gimbal_mode_old)) //test20211123
                                             flg_objectdetection_test2 = False
                                             print("220kv耐張検知終了!!({})".format(objectdetection_mode))
 
                                             #フライトプラン再開
                                             self.droneControlAction("fp_resume")
-                                        #addstart 20220310
                                         elif objectdetection_tower_mode == OBJECTDETECTION_TOWER_MODE_KENSUI_500KV:
                                             self.cameraControlZoom(ZoomValuex12) #12倍
                                             self.cameraControlFocus(2,0.5,0.5)  #AFC、中心
@@ -1342,10 +1303,8 @@ class TerraUTMSDKMainNode():
                                             #カメラ・ジンバル制御待機(画面描画)
                                             self.imshow_while_waiting(wait_time=(wait_zoom + 2),cap=cap,frameName="frame")   #add 20220414
 
-                                            #add 20220117
                                             #パラメータ初期化
                                             self.gimbalcornerReset()
-                                            # currentCameraLens = CAMERALENS_WIDE
                                             #ズーム初期値
                                             self.cameraControlZoom(ZoomValuex2)
                                             #ジンバル復元
@@ -1363,8 +1322,6 @@ class TerraUTMSDKMainNode():
                                             #フライトプラン再開
                                             self.droneControlAction("fp_resume")
 
-                                        #addend 20220310
-                                        #addstart 20220330
                                         elif objectdetection_tower_mode == OBJECTDETECTION_TOWER_MODE_TAICHO_WIDE_TO_ZOOM:
                                             if currentCameraLens == CAMERALENS_WIDE:
                                                 #ジンバル制御
@@ -1379,7 +1336,6 @@ class TerraUTMSDKMainNode():
                                                 print("Saved. {}".format(filename))
 
                                                 self.gimbalControlYawTiltLarge(det[2], det[3])
-                                                # generate_sampling_group_data.clear()   #サンプリングデータ初期化
 
                                                 #wide -> zoomに切り替え
                                                 currentCameraLens = CAMERALENS_ZOOM
@@ -1388,7 +1344,6 @@ class TerraUTMSDKMainNode():
                                                 # #カメラ・ジンバル制御待機(画面描画)
                                                 self.imshow_while_waiting(wait_time=(wait_zoom),cap=cap,frameName="frame")   #add 20220401
                                                 self.cameraControlChangeLens(OSDK_CAMERA_SOURCE_H20T_ZOOM)
-                                                # rospy.sleep(wait_gimbal)
                                                 
                                                 generate_sampling_group_data.clear()   #サンプリングデータ初期化
 
@@ -1427,9 +1382,7 @@ class TerraUTMSDKMainNode():
 
                                                 #フライトプラン再開
                                                 self.droneControlAction("fp_resume")
-                                        #addstart 20220330
                                         else: 
-                                        #addend 202111126
                                             #物体検知モード指定以外の場合, 中心に近い場合はジンバル制御を停止しズームする
                                             if (zoomValueCurrent < ZoomValues[0]):
                                                 self.cameraControlZoom(ZoomValues[0])
@@ -1504,7 +1457,6 @@ class TerraUTMSDKMainNode():
                 #左上の枠
                 cv2.rectangle(disp_frame,(0, 0),(60,60),(175,175,175),1)
 
-                #addstart 20220330
                 rectangl_width = 60
                 rectangl_height = 60
                 rectangl_height = 40    #test20220401
@@ -1525,7 +1477,6 @@ class TerraUTMSDKMainNode():
                     label = "x" + str(test)
                     currnet_start_y += rectangl_height
                     disp_frame = cv2.putText(disp_frame,label,(0, currnet_start_y), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2, cv2.LINE_AA)
-                #addend 20220330
 
                 #左下の枠
                 cv2.rectangle(disp_frame,(0, camera_height - 60),(120,camera_height),(175,175,175),1)
@@ -1533,12 +1484,10 @@ class TerraUTMSDKMainNode():
                 #右下の枠
                 cv2.rectangle(disp_frame,(camera_width - 120, camera_height - 60),(camera_width,camera_height),(175,175,175),1)
 
-                # #test20211128
                 # #waypoint表示 
                 label = "WP:" + str(current_aircraft_waypoint)
                 disp_frame = cv2.putText(disp_frame,label,(0, camera_height-10-20-35), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2, cv2.LINE_AA)
                 disp_frame = cv2.putText(disp_frame,label,(0, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,255,0), 1, cv2.LINE_AA)    #test20220404
-                # #test20211128
 
 
                 # 画像表示
