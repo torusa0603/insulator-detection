@@ -1,5 +1,5 @@
 class INTERVAL:
-    version_202203 = 8
+    version_202203 = 16
     version_202204 = 4
     def __setattr__(self, name, value):
         pass

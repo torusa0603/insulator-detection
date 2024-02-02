@@ -30,6 +30,9 @@ import threading
 import datetime
 from collections import deque
 
+import multiprocessing
+import multiprocessing.sharedctypes
+from multiprocessing import Value
 
 manufacturer = rospy.get_param('manufacturer')
 serial_id = rospy.get_param('serial_id')
@@ -53,7 +56,7 @@ gbl_save_prev_data = SavePrevData()
 
 class ConstSettingValue():
     def __init__(
-        self, target_model_class_indexes:list[int],  input_mode:str, 
+        self, target_model_class_indexes,  input_mode:str, 
         interval:int, objectdetection_target_model:str, model_path:str, output_path:str, 
         maxCornerX:int, maxCornerY:int, confidence_biases: dict, 
         sampling_count: int, group_bias:int, zoom_bias:float, wait_time: dict,
@@ -93,8 +96,8 @@ class TerraUTMSDKMainNode():
             input_mode = DEFINE.INPUT_MODE_GSTREAMER.udp,
             interval = DEFINE.INTERVAL.version_202203,
             objectdetection_target_model = DEFINE.OBJECTDETECTION_TARGET_MODEL.insulator,
-            model_path = DEFINE.MODEL_PATH,
-            output_path = DEFINE.OUTPUT_PATH,
+            model_path = DEFINE.PATH.model,
+            output_path = DEFINE.PATH.output,
             maxCornerX = 12, 
             maxCornerY = 7, 
             confidence_biases = {"default":0.45, "taicho": 0.3, "taicho_wide_to_zoom": 0.1, "show":0.3},
@@ -220,8 +223,10 @@ class TerraUTMSDKMainNode():
 
 
     def start(self):
-        trhead1 =  threading.Thread(target=self.objectdetection, args=())
+        trhead1 =  threading.Thread(target=self.objectdetection, daemon=True, args=())
         trhead1.start()
+        trhead2 = threading.Thread(target=self.showThread, daemon=True, args=())
+        trhead2.start()
 
 
 
@@ -663,11 +668,13 @@ class TerraUTMSDKMainNode():
 
                     label = "Remaining waiting time:" + str(time_zoom - dt.now())                                                   
                     frame = cv2.putText(frame,label,(0, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0,0,255),1, cv2.LINE_AA)
-                    cv2.imshow(frameName, frame)
+                    self.disp_frame = frame
+                    # cv2.imshow(frameName, frame)
 
                     # qキーで終了
-                    if cv2.waitKey(1) & 0xFF == ord('a'):
-                        break                                                            
+                    # if cv2.waitKey(1) & 0xFF == ord('a'):
+                    #     break                            
+                    time.sleep(0.01)                                
                 except:
                     print("error VideoCapture")
                     pass
@@ -683,7 +690,7 @@ class TerraUTMSDKMainNode():
 
 
 #----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-    def openCapture(isGstreamerUri :bool):
+    def openCapture(self,isGstreamerUri :bool):
         if isGstreamerUri:
             cmd = DEFINE.INPUT_MODE_GSTREAMER.uri_str
         else :
@@ -691,6 +698,7 @@ class TerraUTMSDKMainNode():
         print(F'OpenGStreamer:{cmd}')
         try :
             cap = cv2.VideoCapture(cmd, cv2.CAP_GSTREAMER)
+            cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
         except Exception as e:
             print(e)
             return {'Error': True}
@@ -715,7 +723,7 @@ class TerraUTMSDKMainNode():
 
         flg_objectdetection_auto_prev = False
 
-        ret = self.openCapture(self.const_setting_value.input_mode == DEFINE.INPUT_MODE_GSTREAMER.uri)
+        ret = self.openCapture(isGstreamerUri=(self.const_setting_value.input_mode == DEFINE.INPUT_MODE_GSTREAMER.uri))
         if ret['Error']:
             sys.exit()
         cap = ret['cap']
@@ -744,10 +752,10 @@ class TerraUTMSDKMainNode():
         #サンプリング設定
         generate_sampling_group_data = deque()
 
-        #vmware最大画面用
-        cv2.namedWindow('frame', cv2.WINDOW_NORMAL)
-        cv2.setWindowProperty('frame', cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
-        cv2.setMouseCallback('frame',self.onMouseClick)
+        # #vmware最大画面用
+        # cv2.namedWindow('frame', cv2.WINDOW_NORMAL)
+        # cv2.setWindowProperty('frame', cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+        # cv2.setMouseCallback('frame',self.onMouseClick)
 
 
         counter = 0
@@ -758,7 +766,7 @@ class TerraUTMSDKMainNode():
                 if count_fail_open_camera > limit_count_fail_open_camera:
                     sys.exit()
                 count_fail_open_camera += 1
-                ret = self.openCapture(self.const_setting_value.input_mode == DEFINE.INPUT_MODE_GSTREAMER.uri)
+                ret = self.openCapture(isGstreamerUri=(self.const_setting_value.input_mode == DEFINE.INPUT_MODE_GSTREAMER.uri))
                 if ret['Error']:
                     time.sleep(0.5)
                     continue
@@ -790,7 +798,10 @@ class TerraUTMSDKMainNode():
                     continue 
                     
 
-                if (counter % self.const_setting_value.interval == 0):
+                if (counter % self.const_setting_value.interval != 0):
+                    pass
+                else :
+                    counter = 0
                     # モード判定
                     if gbl_data_from_telemetry.objectdetection_tower_mode == DEFINE.OBJECTDETECTION_TOWER_MODE.taicho_220kv:
                         if gbl_instruction_from_click.currentCameraLens == DEFINE.CAMERALENS.wide:
@@ -803,7 +814,7 @@ class TerraUTMSDKMainNode():
                             print("########################wide->zoom wait {}s#######################".format(self.const_setting_value.wait_time["gimbal"]))    #test20220304
                             # #カメラ・ジンバル制御待機(画面描画)
                             self.imshow_while_waiting(wait_time=(self.const_setting_value.wait_time["camera_change"]), cap=cap, frameName="frame", interval=self.const_setting_value.interval)   #add 20220414
-                            generate_sampling_group_data.clear()   #サンプリングデータ初期化
+                            # generate_sampling_group_data.clear()   #サンプリングデータ初期化
                             self.gimbalcornerResetOnlyCorner()
                             continue
                     elif gbl_data_from_telemetry.objectdetection_tower_mode == DEFINE.OBJECTDETECTION_TOWER_MODE.taicho_wide_to_zoom:
@@ -829,6 +840,8 @@ class TerraUTMSDKMainNode():
                     # 保存用
                     # save_image = frame.copy()
                     disp_frame, prob = model.inference(frame)
+                    # disp_frame = np.copy(frame)
+                    # disp_frame = frame.copy()
 
                     #各種描画
                     #十字
@@ -873,19 +886,22 @@ class TerraUTMSDKMainNode():
                     #右下の枠
                     cv2.rectangle(disp_frame,(gbl_camera_control.width - 120, gbl_camera_control.height - 60),(gbl_camera_control.width, gbl_camera_control.height),(175,175,175),1)
 
-                    # 画像表示
-                    cv2.imshow('frame', disp_frame)
+                    # # 画像表示
+                    # cv2.imshow('frame', disp_frame)
+                    self.disp_frame = np.copy(disp_frame)
+                    print("--------------------------------------------------------------------------------------------------------------")
+
 
                     #レンズがポーズのときは次に行く
                     if gbl_instruction_from_click.currentCameraLens == DEFINE.CAMERALENS.dummy_pause :
                         #サンプリング初期化
-                        generate_sampling_group_data.clear()   #サンプリングデータ初期化
+                        # generate_sampling_group_data.clear()   #サンプリングデータ初期化
 
                         counter += 1
                         continue
 
                     #物体検知サンプリング
-                    generate_sampling_group_data = self.generate_sampling_group(prob, gbl_camera_control.height, gbl_camera_control.width, generate_sampling_group_data)
+                    # generate_sampling_group_data = self.generate_sampling_group(prob, gbl_camera_control.height, gbl_camera_control.width, generate_sampling_group_data)
 
                     if len(generate_sampling_group_data) > 0 :
                         flg_control_gimbal = False
@@ -982,7 +998,7 @@ class TerraUTMSDKMainNode():
                                     if ( gbl_instruction_from_click.currentCameraLens == DEFINE.CAMERALENS.wide and gbl_data_from_telemetry.objectdetection_tower_mode != DEFINE.OBJECTDETECTION_TOWER_MODE.taicho_wide_to_zoom):
 
                                         #サンプリング初期化
-                                        generate_sampling_group_data.clear()   #サンプリングデータ初期化
+                                        # generate_sampling_group_data.clear()   #サンプリングデータ初期化
 
                                         #パラメータ初期化
                                         self.gimbalcornerReset()
@@ -1015,7 +1031,7 @@ class TerraUTMSDKMainNode():
                                         #カメラ・ジンバル制御待機(画面描画)
                                         self.imshow_while_waiting(wait_time=(7),cap=cap,frameName="frame", interval=self.const_setting_value.interval)   #add 20220414
 
-                                        generate_sampling_group_data.clear()   #サンプリングデータ初期化
+                                        # generate_sampling_group_data.clear()   #サンプリングデータ初期化
                                         gbl_gimbal_control.mode_old = 2 #test 要確認 20211126
                                         flg_objectdetection_auto = False
                                         print("検知終了！！({})".format(gbl_data_from_telemetry.objectdetection_mode))
@@ -1026,7 +1042,8 @@ class TerraUTMSDKMainNode():
 
                                     else :
                                         cv2.circle(disp_frame, (int(det[2]), int(det[3])), 10, (0, 255, 255), thickness=-1) #add 20211014
-                                        cv2.imshow('frame', disp_frame) # 1回目
+                                        self.disp_frame = disp_frame
+                                        # cv2.imshow('frame', disp_frame) # 1回目
                                         tdatetime = dt.now()
                                         date_str = tdatetime.strftime('%Y%m%d_%H%M%S')
                                         filename = "{}/{}.jpg".format(DEFINE.OUTPUT_PATH, date_str)
@@ -1037,7 +1054,7 @@ class TerraUTMSDKMainNode():
                                         if gbl_data_from_telemetry.objectdetection_tower_mode == DEFINE.OBJECTDETECTION_TOWER_MODE.taicho_220kv:
                                             self.cameraControlZoom(DEFINE.ZOOM_VALUE.Val_12) #12倍
                                             self.cameraControlFocus(2,0.5,0.5)  #AFC、中心
-                                            generate_sampling_group_data.clear()   #サンプリングデータ初期化
+                                            # generate_sampling_group_data.clear()   #サンプリングデータ初期化
                                             #カメラ・ジンバル制御待機(画面描画)
                                             self.imshow_while_waiting(wait_time=(self.const_setting_value.wait_time["zoom"] + 2),cap=cap,frameName="frame", interval=self.const_setting_value.interval)   #add 20220414
 
@@ -1053,7 +1070,7 @@ class TerraUTMSDKMainNode():
                                             #カメラ・ジンバル制御待機(画面描画)
                                             self.imshow_while_waiting(wait_time=(self.const_setting_value.wait_time["gimbal"]),cap=cap,frameName="frame", interval=self.const_setting_value.interval)   #add 20220414
 
-                                            generate_sampling_group_data.clear()   #サンプリングデータ初期化
+                                            # generate_sampling_group_data.clear()   #サンプリングデータ初期化
                                             flg_objectdetection_auto = False
                                             print("220kv耐張検知終了!!({})".format(gbl_data_from_telemetry.objectdetection_mode))
 
@@ -1062,7 +1079,7 @@ class TerraUTMSDKMainNode():
                                         elif gbl_data_from_telemetry.objectdetection_tower_mode == DEFINE.OBJECTDETECTION_TOWER_MODE.kensui_500kv:
                                             self.cameraControlZoom(DEFINE.ZOOM_VALUE.Val_12) #12倍
                                             self.cameraControlFocus(2,0.5,0.5)  #AFC、中心
-                                            generate_sampling_group_data.clear()   #サンプリングデータ初期化
+                                            # generate_sampling_group_data.clear()   #サンプリングデータ初期化
                                             #カメラ・ジンバル制御待機(画面描画)
                                             self.imshow_while_waiting(wait_time=(self.const_setting_value.wait_time["zoom"] + 2),cap=cap,frameName="frame", interval=self.const_setting_value.interval)   #add 20220414
 
@@ -1078,7 +1095,7 @@ class TerraUTMSDKMainNode():
                                             #カメラ・ジンバル制御待機(画面描画)
                                             self.imshow_while_waiting(wait_time=(self.const_setting_value.wait_time["gimbal"]),cap=cap,frameName="frame", interval=self.const_setting_value.interval)   #add 20220414
 
-                                            generate_sampling_group_data.clear()   #サンプリングデータ初期化
+                                            # generate_sampling_group_data.clear()   #サンプリングデータ初期化
                                             gbl_data_from_telemetry.flg_objectdetection_auto = False
                                             print("500kv懸垂検知終了!!({})".format(gbl_data_from_telemetry.objectdetection_mode))
 
@@ -1108,7 +1125,7 @@ class TerraUTMSDKMainNode():
                                                 self.imshow_while_waiting(wait_time=(self.const_setting_value.wait_time["zoom"]),cap=cap,frameName="frame", interval=self.const_setting_value.interval)   #add 20220401
                                                 self.cameraControlChangeLens(DEFINE.OSDK_CAMERA_SOURCE_H20T.zoom)
                                                 
-                                                generate_sampling_group_data.clear()   #サンプリングデータ初期化
+                                                # generate_sampling_group_data.clear()   #サンプリングデータ初期化
 
                                                 gbl_gimbal_instruction_from_detection.gimbalCornerX = self.const_setting_value.maxCornerX
                                                 gbl_gimbal_instruction_from_detection.gimbalCornerY = self.const_setting_value.maxCornerY
@@ -1117,7 +1134,7 @@ class TerraUTMSDKMainNode():
                                             else:
                                                 self.cameraControlZoom(DEFINE.ZOOM_VALUE.Val_12) #12倍？ #107
                                                 self.cameraControlFocus(2, 0.5, 0.5)  #AFC、中心
-                                                generate_sampling_group_data.clear()   #サンプリングデータ初期化
+                                                # generate_sampling_group_data.clear()   #サンプリングデータ初期化
 
                                                 #カメラ・ジンバル制御待機(画面描画)
                                                 self.imshow_while_waiting(wait_time=(self.const_setting_value.wait_time["gimbal"] + 2),cap=cap,frameName="frame", interval=self.const_setting_value.interval)   #add 20220331
@@ -1136,7 +1153,7 @@ class TerraUTMSDKMainNode():
                                                 #カメラ・ジンバル制御待機(画面描画)
                                                 self.imshow_while_waiting(wait_time= self.const_setting.wait_time["gimbal"],cap=cap,frameName="frame", interval=self.const_setting_value.interval)   #add 20220331
 
-                                                generate_sampling_group_data.clear()   #サンプリングデータ初期化
+                                                # generate_sampling_group_data.clear()   #サンプリングデータ初期化
                                                 gbl_data_from_telemetry.flg_objectdetection_auto = False
                                                 flg_objectdetection_auto_prev = False  #test20220404
                                                 print("耐張(wide)検知終了！！({})".format(gbl_data_from_telemetry.objectdetection_mode))
@@ -1169,7 +1186,7 @@ class TerraUTMSDKMainNode():
                                                 self.cameraControlZoom(DEFINE.ZOOM_VALUE.Val_2)
                                             #ズーム後フォーカス処理
                                             self.cameraControlFocus(2,0.5,0.5)  #AFC、中心
-                                            generate_sampling_group_data.clear()   #サンプリングデータ初期化
+                                            # generate_sampling_group_data.clear()   #サンプリングデータ初期化
                                             #カメラ・ジンバル制御待機(画面描画)
                                             self.imshow_while_waiting(wait_time=(self.const_setting_value.wait_time["zoom"]),cap=cap,frameName="frame", interval=self.const_setting_value.interval)   #add 20220414
 
@@ -1188,7 +1205,7 @@ class TerraUTMSDKMainNode():
                                     print("Saved. {}".format(filename))
 
                                     yaw, tilt = self.gimbalControlYawTiltLarge(det[2], det[3])
-                                    generate_sampling_group_data.clear()   #サンプリングデータ初期化
+                                    # generate_sampling_group_data.clear()   #サンプリングデータ初期化
                                     tmp_wait_gimbal = self.const_setting_value.wait_time["gimbal"]
                                     if self.const_setting_value.flg_gimbal_variable_waiting_time == True:
                                         #ジンバル制御時の待ち時間自動調整
@@ -1201,12 +1218,11 @@ class TerraUTMSDKMainNode():
                                             tmp_wait_gimbal = 2 *  abs(tilt) / 60 + 2
                                     print("ジンバル制御waittime:{}".format(tmp_wait_gimbal))
                                     rospy.sleep(tmp_wait_gimbal)
-
             else :
                 #サンプリング初期化
-                generate_sampling_group_data.clear()   #サンプリングデータ初期化
+                # generate_sampling_group_data.clear()   #サンプリングデータ初期化
 
-                disp_frame = frame.copy()
+                disp_frame = frame
                 #各種描画
                 #十字
                 cv2.line(disp_frame, (0, gbl_gimbal_instruction_from_detection.centerY), (gbl_camera_control.width, gbl_gimbal_instruction_from_detection.centerY), (175, 175, 175), thickness=1)
@@ -1257,29 +1273,31 @@ class TerraUTMSDKMainNode():
                 disp_frame = cv2.putText(disp_frame,label,(0, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,255,0), 1, cv2.LINE_AA)    #test20220404
 
 
-                # 画像表示
-                cv2.imshow('frame', disp_frame)
+                # # 画像表示
+                # cv2.imshow('frame', disp_frame)
+                self.disp_frame = disp_frame
 
                 #フラグ保持
                 flg_objectdetection_auto_prev = False  #test20220401
 
-            wk = cv2.waitKey(1) 
-            if wk==13:
-                break
-            elif wk==87:
-                os.system("echo 'terra1234'|sudo -Ss;sudo /sbin/reboot")
-            elif wk==97: #a
-                 cv2.namedWindow('frame', cv2.WINDOW_NORMAL)
-                 cv2.setWindowProperty('frame', cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
-            elif wk==119: #w
-                cv2.namedWindow('frame', cv2.WND_PROP_AUTOSIZE)
-                cv2.setWindowProperty('frame', cv2.WND_PROP_FULLSCREEN , cv2.WINDOW_NORMAL)
-            elif wk==-1:
-                pass
-            else:
-                print("wk:{}".format(wk))
+            # wk = cv2.waitKey(1) 
+            # if wk==13:
+            #     break
+            # elif wk==87:
+            #     os.system("echo 'terra1234'|sudo -Ss;sudo /sbin/reboot")
+            # elif wk==97: #a
+            #      cv2.namedWindow('frame', cv2.WINDOW_NORMAL)
+            #      cv2.setWindowProperty('frame', cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+            # elif wk==119: #w
+            #     cv2.namedWindow('frame', cv2.WND_PROP_AUTOSIZE)
+            #     cv2.setWindowProperty('frame', cv2.WND_PROP_FULLSCREEN , cv2.WINDOW_NORMAL)
+            # elif wk==-1:
+            #     pass
+            # else:
+            #     print("wk:{}".format(wk))
 
             counter += 1
+            print(counter)
 
         cap.release()
         cv2.destroyAllWindows()
@@ -1295,6 +1313,30 @@ class TerraUTMSDKMainNode():
         subprocess.run('echo "terra1234" | sudo -Ss;/home/terra/kill_all_rosnode.sh', shell=True)
        
 
+    def showThread(self):
+        #vmware最大画面用
+        cv2.namedWindow('frame', cv2.WINDOW_NORMAL)
+        cv2.setWindowProperty('frame', cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+        cv2.setMouseCallback('frame',self.onMouseClick)
+        wk = cv2.waitKey(3000) 
+        while True:
+            # 画像表示
+            cv2.imshow('frame', self.disp_frame)
+            wk = cv2.waitKey(1) 
+            if wk==13:
+                break
+            elif wk==87:
+                os.system("echo 'terra1234'|sudo -Ss;sudo /sbin/reboot")
+            elif wk==97: #a
+                 cv2.namedWindow('frame', cv2.WINDOW_NORMAL)
+                 cv2.setWindowProperty('frame', cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+            elif wk==119: #w
+                cv2.namedWindow('frame', cv2.WND_PROP_AUTOSIZE)
+                cv2.setWindowProperty('frame', cv2.WND_PROP_FULLSCREEN , cv2.WINDOW_NORMAL)
+            elif wk==-1:
+                pass
+            else:
+                print("wk:{}".format(wk))
 
 
 
