@@ -15,13 +15,13 @@ class Model():
         # self.__ort = ort.InferenceSession(model_path, providers=['CPUExecutionProvider'])
         self.__ort = ort.InferenceSession(model_path, providers=['CPUExecutionProvider'])
 
-    def inference(self, frame):
+    def inference(self, frame, threshold):
 
         # ikeya
         labels = ["isn_t", "ins_t_b"]
         min_width, min_height = 640, 640
+        height, width = frame.shape[0], frame.shape[1]
         frame_shape = frame.shape
-        threshold = 0.45
 
         def cv2pil(img_cv):
             im_rgb = cv2.cvtColor(img_cv, cv2.COLOR_BGR2RGB)
@@ -30,7 +30,6 @@ class Model():
             return im_rgb
         
         def draw_detection(frame, shape, box):
-            height, width = frame.shape[0], frame.shape[1]
             xc, yc, w, h = box[:4]
             left = (xc-w/2)/min_width*width
             top = (yc-h/2)/min_height*height
@@ -45,6 +44,7 @@ class Model():
             if prob_t_b >= threshold:
                 # print([left, top, right, bottom, prob_t_b, labels[1]])
                 cv2.rectangle(img=frame, pt1=(int(left), int(top)), pt2=(int(right), int(bottom)), color=(255, 0, 0), thickness=1)
+            return [int(xc/min_width*width), int(yc/min_height*height), int(w/min_width*width), int(h/min_height*height)]
     
         onnx_frame = cv2.medianBlur(frame, 1)
         onnx_image = cv2pil(cv2.resize(onnx_frame, (min_width, min_height)))
@@ -60,10 +60,11 @@ class Model():
 
         output_boxes = outputs[0][0].transpose()
         output_boxes = np.delete(output_boxes, np.all(output_boxes[:, 4:] < threshold , axis=1), axis=0)
+        ret_prob_pix = []
 
         for box in output_boxes:
             # print("onnx box: {}".format(box))
-            draw_detection(onnx_frame, frame_shape, box)
+            ret_prob_pix.append(draw_detection(onnx_frame, frame_shape, box))
 
         elapsed_time = time.time() - start
         print("{} [Sec]".format(elapsed_time))
@@ -71,10 +72,10 @@ class Model():
         output_boxes = np.insert(output_boxes, [0], int(0), axis=1)
         output_boxes = output_boxes[:, [0, 5, 1, 2, 3, 4]]
 
-        # Kome用にformatを修正 ONNX(xc, yc, w, h) -> MXNet(x1, y1, x2, y2)
-        output_boxes[:, 2] = output_boxes[:, 2] - output_boxes[:, 4]/2
-        output_boxes[:, 3] = output_boxes[:, 3] - output_boxes[:, 5]/2
-        output_boxes[:, 4] = output_boxes[:, 2] + output_boxes[:, 4]/2
-        output_boxes[:, 5] = output_boxes[:, 3] + output_boxes[:, 5]/2
+        # # Kome用にformatを修正 ONNX(xc, yc, w, h) -> MXNet(x1, y1, x2, y2)
+        # output_boxes[:, 2] = output_boxes[:, 2] - output_boxes[:, 4]/2
+        # output_boxes[:, 3] = output_boxes[:, 3] - output_boxes[:, 5]/2
+        # output_boxes[:, 4] = output_boxes[:, 2] + output_boxes[:, 4]/2
+        # output_boxes[:, 5] = output_boxes[:, 3] + output_boxes[:, 5]/2
 
-        return onnx_frame, output_boxes
+        return onnx_frame, ret_prob_pix

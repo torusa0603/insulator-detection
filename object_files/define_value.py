@@ -1,5 +1,5 @@
 class INTERVAL:
-    version_202203 = 16
+    version_202203 = 32
     version_202204 = 4
     def __setattr__(self, name, value):
         pass
@@ -98,5 +98,10 @@ class OSDK_CAMERA_SOURCE_H20T:
     wide = 1
     zoom = 2
     ir = 3
+    def __setattr__(self, name, value):
+        pass
+
+class CAMERA_PARAMETER:
+    fov = 70
     def __setattr__(self, name, value):
         pass
