@@ -69,8 +69,8 @@ class Model():
         elapsed_time = time.time() - start
         print("{} [Sec]".format(elapsed_time))
 
-        output_boxes = np.insert(output_boxes, [0], int(0), axis=1)
-        output_boxes = output_boxes[:, [0, 5, 1, 2, 3, 4]]
+        # output_boxes = np.insert(output_boxes, [0], int(0), axis=1)
+        # output_boxes = output_boxes[:, [0, 5, 1, 2, 3, 4]]
 
         # # Kome用にformatを修正 ONNX(xc, yc, w, h) -> MXNet(x1, y1, x2, y2)
         # output_boxes[:, 2] = output_boxes[:, 2] - output_boxes[:, 4]/2
