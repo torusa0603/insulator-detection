@@ -68,31 +68,13 @@ class WH():
 
 class ConstSettingValue():
     def __init__(
-        self, target_model_class_indexes:list,  input_mode:str, 
-        interval:int, objectdetection_target_model:str, model_path:str, output_path:str, 
-        maxCornerX:int, maxCornerY:int, confidence_biases: dict, 
-        sampling_count: int, group_bias:int, zoom_bias:float, wait_time: dict,
-        cornerbias: int, flg_gimbal_variable_waiting_time: bool,
-        flg_target_strict_judgement: bool, targetSquare:WH,
+        self,  input_mode:str, interval:int, objectdetection_target_model:str, model_path:str, output_path:str, targetSquare:WH,
         ):
-        self.target_model_class_indexes = target_model_class_indexes
         self.input_mode = input_mode
         self.interval = interval
         self.objectdetection_target_model = objectdetection_target_model
         self.model_path = model_path
         self.output_path = output_path
-        self.maxCornerX = maxCornerX                    #初期ジンバル最大角度X 
-        self.maxCornerY = maxCornerY                    #初期ジンバル最大角度Y
-        self.corner_add_value_X = self.maxCornerX/2
-        self.corner_add_value_Y = self.maxCornerY/2     #初期中央四角(縦) 
-        self.confidence_biases = confidence_biases          #認識率閾値
-        self.sampling_count = sampling_count
-        self.group_bias = group_bias
-        self.zoom_bias = zoom_bias
-        self.wait_time = wait_time
-        self.cornerbias = cornerbias
-        self.flg_gimbal_variable_waiting_time = flg_gimbal_variable_waiting_time
-        self.flg_target_strict_judgement = flg_target_strict_judgement
         self.targetSquare = targetSquare
 
 
@@ -105,22 +87,11 @@ class TerraUTMSDKMainNode():
         self.telemetry_sub = rospy.Subscriber('telemetry', TelemetryData, self.telemetryCallback)
         self.start_time = 0
         self.const_setting_value = ConstSettingValue(
-            target_model_class_indexes=[DEFINE.CLASS_INSULATOR.t_660, DEFINE.CLASS_INSULATOR.t_, DEFINE.CLASS_INSULATOR.t_500], 
             input_mode = DEFINE.INPUT_MODE_GSTREAMER.udp,
-            interval = DEFINE.INTERVAL.version_202203,
+            interval = 32,
             objectdetection_target_model = DEFINE.OBJECTDETECTION_TARGET_MODEL.insulator,
             model_path = DEFINE.PATH.model,
             output_path = DEFINE.PATH.output,
-            maxCornerX = 12, 
-            maxCornerY = 7, 
-            confidence_biases = {"default":0.45, "taicho": 0.3, "taicho_wide_to_zoom": 0.1, "show":0.3},
-            sampling_count = 5,    
-            group_bias = 100,       
-            zoom_bias = 1.1,   
-            wait_time={"zoom":3, "gimbal":4, "camera_change":1},
-            cornerbias = 2,
-            flg_gimbal_variable_waiting_time = False,
-            flg_target_strict_judgement = True,
             targetSquare=WH(width=120, height=120)
             )
 
@@ -152,15 +123,13 @@ class TerraUTMSDKMainNode():
             objectdetection_status = data.objectdetection_status
 
             if data.objectdetection_mode == 0:
-                gbl_data_from_telemetry.objectdetection_tower_mode = DEFINE.OBJECTDETECTION_TOWER_MODE.taicho_wide_to_zoom
-                gbl_data_from_telemetry.confidence_bias = self.const_setting_value.confidence_biases["taicho_wide_to_zoom"]
+                gbl_data_from_telemetry.objectdetection_tower_mode = DEFINE.OBJECTDETECTION_TOWER_MODE.taicho
 
             print("gimbal_pitch: {}, gimbal_roll: {}, gimbal_yaw: {}, gimbal_mode: {}, gimbal_mode_old: {}, mission_status: {}, MISSION_STATUS_PAUSE: {}, objectdetection_status: {}".format(gbl_gimbal_control.pitch,gbl_gimbal_control.roll,gbl_gimbal_control.yaw,gbl_gimbal_control.mode,gbl_gimbal_control.mode_old,mission_status,DEFINE.MISSION_STATUS.pause,objectdetection_status))
 
             if (objectdetection_status != gbl_save_prev_data.objectdetection_status_old):
                 print("モード切替！")
                 if(objectdetection_status == DEFINE.OBJECTDETECTION_STATUS.start): # OD開始
-                    gbl_data_from_telemetry.objectdetection_mode = DEFINE.OBJECTDETECTION_MODE.default_center
                     self.manualStartObjectDetection()
                 elif(objectdetection_status == DEFINE.OBJECTDETECTION_STATUS.no_action) : # OD無効
                     #物体検知処理無効
@@ -283,7 +252,7 @@ class TerraUTMSDKMainNode():
 
 #----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-    def gimbalControlYawPitch(self, yaw, pitch):
+    def gimbalControlYawPitch(self, yaw:float, pitch:float):
         j = json.dumps(
             {"type": "ctrl_drone","cmd": "gimbalctrl","target_type": 1,"action_type": 2,"action_value": str(yaw) +","+ str(pitch)}
         )
@@ -415,37 +384,32 @@ class TerraUTMSDKMainNode():
             return {'Error': True}
         return {'Error': False, 'cap': cap}
 
-    def drawDisplayImage(self, img, flag_detection : bool, zoomValueCurrent : int):
-        global gbl_camera_control
-        global gbl_instruction_from_click
-        centerX = gbl_camera_control.width // 2
-        centerY = gbl_camera_control.height // 2
+    def drawDisplayImage(self, img, flag_detection : bool, zoomValueCurrent : int, currentLens : DEFINE.CAMERALENS, cameraSize : WH):
+        centerX = cameraSize.width // 2
+        centerY = cameraSize.height // 2
         #十字
-        cv2.line(img, (0, centerY), (gbl_camera_control.width, centerY), (175, 175, 175), thickness=1)
-        cv2.line(img, (centerX, 0), (centerX, gbl_camera_control.height), (175, 175, 175), thickness=1)
+        cv2.line(img, (0, centerY), (cameraSize.width, centerY), (175, 175, 175), thickness=1)
+        cv2.line(img, (centerX, 0), (centerX, cameraSize.height), (175, 175, 175), thickness=1)
         #ターゲット
         cv2.rectangle(img,(centerX - self.const_setting_value.targetSquare.width // 2, centerY - self.const_setting_value.targetSquare.height // 2),(centerX + self.const_setting_value.targetSquare.width // 2, centerY + self.const_setting_value.targetSquare.height // 2),(175,175,175),1)
         #左上の枠
         cv2.rectangle(img, (0, 0),(60,60),(175,175,175),1)
         #左下の枠
-        cv2.rectangle(img,(0, gbl_camera_control.height - 60),(120, gbl_camera_control.height),(175,175,175),1)
+        cv2.rectangle(img,(0, cameraSize.height - 60),(120, cameraSize.height),(175,175,175),1)
         #右下の枠
-        cv2.rectangle(img,(gbl_camera_control.width - 120, gbl_camera_control.height - 60),(gbl_camera_control.width, gbl_camera_control.height),(175,175,175),1)
+        cv2.rectangle(img,(cameraSize.width - 120, cameraSize.height - 60),(cameraSize.width, cameraSize.height),(175,175,175),1)
         #waypoint表示 
         label = "WP:" + str(gbl_data_from_telemetry.current_aircraft_waypoint)
-        img = cv2.putText(img,label,(0, gbl_camera_control.height-10-20-35), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2, cv2.LINE_AA)
+        img = cv2.putText(img,label,(0, cameraSize.height-10-20-35), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2, cv2.LINE_AA)
         if flag_detection:
-            #モード表示
-            label = gbl_data_from_telemetry.objectdetection_mode
-            img = cv2.putText(img,label,(0, gbl_camera_control.height-10), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 2, cv2.LINE_AA)
             #レンズモード表示
-            label = gbl_instruction_from_click.currentCameraLens
+            label = currentLens
             if label == DEFINE.CAMERALENS.dummy_pause : 
-                img = cv2.putText(img,label,(0, gbl_camera_control.height-10-20), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,0,0), 2, cv2.LINE_AA)
+                img = cv2.putText(img,label,(0, cameraSize.height-10-20), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,0,0), 2, cv2.LINE_AA)
             else :
-                img = cv2.putText(img,label,(0, gbl_camera_control.height-10-20), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2, cv2.LINE_AA)
+                img = cv2.putText(img,label,(0, cameraSize.height-10-20), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2, cv2.LINE_AA)
             #検知時のパラメータ表示 
-            label = "Model:" + self.const_setting_value.objectdetection_target_model + ", Mode:" + str(gbl_data_from_telemetry.objectdetection_tower_mode) + ", conf:" + str(gbl_data_from_telemetry.confidence_bias) + ", conf_show:" + str(self.const_setting_value.confidence_biases["show"]) + ", camera:" + str(gbl_instruction_from_click.currentCameraLens) + ", zoom:" + str(zoomValueCurrent)
+            label = "Model:" + self.const_setting_value.objectdetection_target_model + ", Mode:" + str(gbl_data_from_telemetry.objectdetection_tower_mode) + ", conf:" + ", conf_show:" + ", camera:" + str(currentLens) + ", zoom:" + str(zoomValueCurrent)
             img = cv2.putText(img,label,(0, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0,0,255),1, cv2.LINE_AA)
         else :
             rectangl_width = 60
@@ -466,7 +430,7 @@ class TerraUTMSDKMainNode():
             img = cv2.putText(img,label,(0, currnet_start_y), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2, cv2.LINE_AA)
         return img
 
-    def analyzeProbGroup(self, prob):
+    def analyzeProbGroup(self, prob, cameraSize:WH):
         def compareSize(a, b):
             if a > b:
                 return [b,a]
@@ -478,11 +442,11 @@ class TerraUTMSDKMainNode():
             return {'Error': True}
         else:
             # 左上が原点とし、下方向がy+、右方向がx+
-            min_y = gbl_camera_control.height
+            min_y = cameraSize.height
             min_y_indx = 0
             max_y = 0
             max_y_indx = 0
-            min_x = gbl_camera_control.width
+            min_x = cameraSize.width
             max_x = 0
             sum_w = 0
             sum_h = 0
@@ -630,7 +594,7 @@ class TerraUTMSDKMainNode():
         flg_objectdetection_auto_prev = False
         zoom_detect_process = False
         wide_detect_skip = False
-        wide_detect_timeout = 10
+        wide_detect_timeout =   10
 
         # self.cameraControlChangeLens(DEFINE.OSDK_CAMERA_SOURCE_H20T.wide)
         time.sleep(1)
@@ -689,7 +653,7 @@ class TerraUTMSDKMainNode():
                     sum_yaw = 0
                     sum_pitch = 0
                     dt_start_detect = datetime.datetime.now()
-                    wide_detect_skip = False
+                    wide_detect_skip = True
                     continue 
                 if (counter % self.const_setting_value.interval != 0):
                     pass
@@ -701,15 +665,17 @@ class TerraUTMSDKMainNode():
                             time.sleep(1)
                             self.cameraControlFocus(2,0.5,0.5)
                             time.sleep(1)
-
+                    
+                    # 推定処理
+                    # カメラタイプによって閾値を変更させる
                     threadhold = 0.0
                     if gbl_instruction_from_click.currentCameraLens == DEFINE.CAMERALENS.wide:
                         threadhold = 0.3
                     else:
                         threadhold = 0.4
-                    # 保存用
                     disp_frame, prob = model.inference(frame, threadhold)
-                    result = self.analyzeProbGroup(prob)
+                    result = self.analyzeProbGroup(prob=prob, cameraSize=WH(width=gbl_camera_control.width, height=gbl_camera_control.height))
+
                     if result["Error"] == False:
                         tem_a = result["slopes"]
                         base_coordinate = result["base_coordinate"]
@@ -718,7 +684,9 @@ class TerraUTMSDKMainNode():
                         group_prob_end   = result["group_box"]["right_bottom"]
 
                         disp_frame = self.drawDisplayImage(img = disp_frame, flag_detection = gbl_data_from_telemetry.flg_objectdetection_auto, 
-                            zoomValueCurrent = gbl_gimbal_instruction_from_detection.zoomValueCurrent)
+                            zoomValueCurrent = gbl_gimbal_instruction_from_detection.zoomValueCurrent, currentLens = gbl_instruction_from_click.currentCameraLens, 
+                            cameraSize=WH(width=gbl_camera_control.width, height=gbl_camera_control.height))
+                        
                         # 碍子連に沿った直線の描写
                         start_pt = Coodinate(x=base_coordinate.x, y=base_coordinate.y)
                         start_pt = self.validetatePoint(point=start_pt, width=gbl_camera_control.width, height=gbl_camera_control.height)
@@ -728,12 +696,14 @@ class TerraUTMSDKMainNode():
                             end_pt = Coodinate(x=start_pt.x + gbl_camera_control.width/3,y=start_pt.y + tem_a*gbl_camera_control.width/3)
                         end_pt = self.validetatePoint(point=end_pt, width=gbl_camera_control.width, height=gbl_camera_control.height)
                         cv2.line(disp_frame, (start_pt.x, start_pt.y), (end_pt.x, end_pt.y), (0, 0, 255), thickness=3)
+
                         # 碍子連全体を囲むボックスの描写
                         group_prob_start = self.validetatePoint(point=group_prob_start, width=gbl_camera_control.width, height=gbl_camera_control.height)
                         group_prob_end = self.validetatePoint(point=group_prob_end, width=gbl_camera_control.width, height=gbl_camera_control.height)
                         cv2.rectangle(disp_frame, (group_prob_start.x, group_prob_start.y),(group_prob_end.x, group_prob_end.y),(255, 0, 0),3)
                         yaw, pitch = self.gimbalControlXY(x=base_coordinate.x, y=base_coordinate.y, cameraType=gbl_instruction_from_click.currentCameraLens, 
                             zoomVlue=gbl_gimbal_instruction_from_detection.zoomValueCurrent, width=gbl_camera_control.width, height=gbl_camera_control.height)
+                        
                         sum_yaw += yaw    
                         sum_pitch += pitch
                         if gbl_instruction_from_click.currentCameraLens == DEFINE.CAMERALENS.wide:
@@ -777,7 +747,8 @@ class TerraUTMSDKMainNode():
                                     sum_pitch += pitch
                                     _, frame = cap.read()
                                     disp_frame = self.drawDisplayImage(img = disp_frame, flag_detection = gbl_data_from_telemetry.flg_objectdetection_auto, 
-                                        zoomValueCurrent = gbl_gimbal_instruction_from_detection.zoomValueCurrent)
+                                        zoomValueCurrent = gbl_gimbal_instruction_from_detection.zoomValueCurrent, currentLens = gbl_instruction_from_click.currentCameraLens, 
+                                        cameraSize=WH(width=gbl_camera_control.width, height=gbl_camera_control.height))
                                     self.disp_frame = np.copy(disp_frame)
                                 zoom_detect_process = False
                                 self.cameraControlChangeLens(DEFINE.OSDK_CAMERA_SOURCE_H20T.wide)
@@ -798,7 +769,8 @@ class TerraUTMSDKMainNode():
                         if (dt_now - dt_start_detect).seconds > wide_detect_timeout:
                             wide_detect_skip = True
                         disp_frame = self.drawDisplayImage(img = disp_frame, flag_detection = gbl_data_from_telemetry.flg_objectdetection_auto, 
-                            zoomValueCurrent = gbl_gimbal_instruction_from_detection.zoomValueCurrent)
+                            zoomValueCurrent = gbl_gimbal_instruction_from_detection.zoomValueCurrent, currentLens = gbl_instruction_from_click.currentCameraLens, 
+                            cameraSize=WH(width=gbl_camera_control.width, height=gbl_camera_control.height))
                     # 画像表示
                     self.disp_frame = np.copy(disp_frame)
                     #レンズがポーズのときは次に行く
@@ -807,7 +779,8 @@ class TerraUTMSDKMainNode():
                         continue
             else :
                 disp_frame = self.drawDisplayImage(img = frame, flag_detection = gbl_data_from_telemetry.flg_objectdetection_auto, 
-                    zoomValueCurrent = gbl_gimbal_instruction_from_detection.zoomValueCurrent)
+                    zoomValueCurrent = gbl_gimbal_instruction_from_detection.zoomValueCurrent, currentLens = gbl_instruction_from_click.currentCameraLens, 
+                    cameraSize=WH(width=gbl_camera_control.width, height=gbl_camera_control.height))
                 # 画像表示
                 self.disp_frame = disp_frame
                 #フラグ保持
@@ -823,7 +796,6 @@ class TerraUTMSDKMainNode():
 
 
     def showThread(self):
-        global gbl_data_from_telemetry
         #vmware最大画面用
         cv2.namedWindow('frame', cv2.WINDOW_NORMAL)
         cv2.setWindowProperty('frame', cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
