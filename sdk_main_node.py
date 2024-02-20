@@ -286,15 +286,7 @@ class TerraUTMSDKMainNode():
         j = json.dumps(
             {"type": "ctrl_drone","cmd": "gimbalctrl","target_type": 1,"action_type": 2,"action_value": str(yaw) +","+ str(pitch)}
         )
-
-        jd = json.loads(j)
-        utmMessage = UTMMessage()
-        utmMessage.type = jd["type"]
-        utmMessage.cmd = jd["cmd"]
-        utmMessage.target_type = jd["target_type"]
-        utmMessage.action_type = jd["action_type"]
-        utmMessage.action_value = jd["action_value"]
-        self.utm_pub.publish(utmMessage)
+        self.publishUTMMessage(j)
 
     def gimbalControlXY(self, x:float, y:float, cameraType:DEFINE.CAMERALENS, zoomVlue:int, width:int, height:int):
         # zoom率の大きさによってfovの値が変わる
@@ -319,15 +311,7 @@ class TerraUTMSDKMainNode():
         j = json.dumps(
             {"type": "ctrl_drone","cmd": "gimbalctrl","target_type": 1,"action_type": 2,"action_value": str(yaw) +","+ str(pitch)}
         )
-
-        jd = json.loads(j)
-        utmMessage = UTMMessage()
-        utmMessage.type = jd["type"]
-        utmMessage.cmd = jd["cmd"]
-        utmMessage.target_type = jd["target_type"]
-        utmMessage.action_type = jd["action_type"]
-        utmMessage.action_value = jd["action_value"]
-        self.utm_pub.publish(utmMessage)
+        self.publishUTMMessage(j)
 
         return yaw, pitch
 
@@ -339,16 +323,8 @@ class TerraUTMSDKMainNode():
         j = json.dumps(
             {"type": "ctrl_drone","cmd": "gimbalctrl","target_type": 2,"action_type": 0,"action_value": str(zoomvalue)}
         )
+        self.publishUTMMessage(j)
         print(j)
-
-        jd = json.loads(j)
-        utmMessage = UTMMessage()
-        utmMessage.type = jd["type"]
-        utmMessage.cmd = jd["cmd"]
-        utmMessage.target_type = jd["target_type"]
-        utmMessage.action_type = jd["action_type"]
-        utmMessage.action_value = jd["action_value"]
-        self.utm_pub.publish(utmMessage)
 
 #----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -356,16 +332,8 @@ class TerraUTMSDKMainNode():
         j = json.dumps(
             {"type": "ctrl_drone","cmd": "gimbalctrl","target_type": 2,"action_type": 1,"action_value": str(focusmode) + "," + str(x) + "," + str(y)}
         )
+        self.publishUTMMessage(j)
         print(j)
-
-        jd = json.loads(j)
-        utmMessage = UTMMessage()
-        utmMessage.type = jd["type"]
-        utmMessage.cmd = jd["cmd"]
-        utmMessage.target_type = jd["target_type"]
-        utmMessage.action_type = jd["action_type"]
-        utmMessage.action_value = jd["action_value"]
-        self.utm_pub.publish(utmMessage)
 
 #----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -380,32 +348,53 @@ class TerraUTMSDKMainNode():
         j = json.dumps(
             {"type": "ctrl_drone","cmd": "gimbalctrl","target_type": 2,"action_type": 2,"action_value": str(lensvalue)}
         )
+        self.publishUTMMessage(j)
         print(j)
-
-        jd = json.loads(j)
-        utmMessage = UTMMessage()
-        utmMessage.type = jd["type"]
-        utmMessage.cmd = jd["cmd"]
-        utmMessage.target_type = jd["target_type"]
-        utmMessage.action_type = jd["action_type"]
-        utmMessage.action_value = jd["action_value"]
-        self.utm_pub.publish(utmMessage)
 
 #----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
     def droneControlActionResume(self):
         j = json.dumps(
-            {"cmd": "fp_resume", "type": "ctrl_drone", "flight_id": "dummy"}
+            {"type": "ctrl_drone", "cmd": "fp_resume", "flight_id": "dummy"}
         )
+        self.publishUTMMessage(j)
         print(j)
 
-        jd = json.loads(j)
+    def publishUTMMessage(self, msg_json : str):
+        jd = json.loads(msg_json)
+        # ROS用msgクラスは__dict__を持っていないために下記の様な仕様にしている
+        # 最低限無いと困る要素
         utmMessage = UTMMessage()
-        utmMessage.type = jd["type"]
-        utmMessage.cmd = jd["cmd"]
-        utmMessage.flight_id = jd["flight_id"]
+        try:
+            utmMessage.type = jd["type"]
+            utmMessage.cmd = jd["cmd"]
+        except KeyError:
+            return {'Error': True}
+        
+        # コマンドによって必要性が変化する要素(現仕様で使っているもののみを書いているので、適宜追加)
+        try:
+            utmMessage.target_type = jd["target_type"]
+        except KeyError:
+            pass
+
+        try:
+            utmMessage.action_type = jd["action_type"]
+        except KeyError:
+            pass
+        
+        try:
+            utmMessage.action_value = jd["action_value"]
+        except KeyError:
+            pass
+
+        try:
+            utmMessage.flight_id = jd["flight_id"]
+        except KeyError:
+            pass
+        print(utmMessage)
 
         self.utm_pub.publish(utmMessage)
+        return {'Error': False}
 
 #----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
     def openCapture(self,isGstreamerUri :bool):
