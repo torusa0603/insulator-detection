@@ -61,20 +61,19 @@ class Coodinate():
         self.x = int(x)
         self.y = int(y)
 
-class WDH():
-    def __init__(self, width:float, depth:float, height:float) -> None:
+class WH():
+    def __init__(self, width:float, height:float) -> None:
         self.width = int(width)
-        self.depth = int(depth)
         self.height = int(height)
 
 class ConstSettingValue():
     def __init__(
-        self, target_model_class_indexes,  input_mode:str, 
+        self, target_model_class_indexes:list,  input_mode:str, 
         interval:int, objectdetection_target_model:str, model_path:str, output_path:str, 
         maxCornerX:int, maxCornerY:int, confidence_biases: dict, 
         sampling_count: int, group_bias:int, zoom_bias:float, wait_time: dict,
         cornerbias: int, flg_gimbal_variable_waiting_time: bool,
-        flg_target_strict_judgement: bool,
+        flg_target_strict_judgement: bool, targetSquare:WH,
         ):
         self.target_model_class_indexes = target_model_class_indexes
         self.input_mode = input_mode
@@ -94,6 +93,7 @@ class ConstSettingValue():
         self.cornerbias = cornerbias
         self.flg_gimbal_variable_waiting_time = flg_gimbal_variable_waiting_time
         self.flg_target_strict_judgement = flg_target_strict_judgement
+        self.targetSquare = targetSquare
 
 
 class TerraUTMSDKMainNode():
@@ -120,7 +120,8 @@ class TerraUTMSDKMainNode():
             wait_time={"zoom":3, "gimbal":4, "camera_change":1},
             cornerbias = 2,
             flg_gimbal_variable_waiting_time = False,
-            flg_target_strict_judgement = True
+            flg_target_strict_judgement = True,
+            targetSquare=WH(width=120, height=120)
             )
 
 #----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -212,7 +213,7 @@ class TerraUTMSDKMainNode():
 
         if event == cv2.EVENT_LBUTTONDOWN:
             print(x, y)
-            if x >= gbl_camera_control.width // 2 - gbl_instruction_from_click.targetSquareWidth // 2 and x <= gbl_camera_control.width // 2 + gbl_instruction_from_click.targetSquareWidth // 2 and y >= gbl_camera_control.height // 2 - gbl_instruction_from_click.targetSquareHeight // 2 and y <= gbl_camera_control.height // 2 + gbl_instruction_from_click.targetSquareHeight // 2 :
+            if x >= gbl_camera_control.width // 2 - self.const_setting_value.targetSquare.width // 2 and x <= gbl_camera_control.width // 2 + self.const_setting_value.targetSquare.width // 2 and y >= gbl_camera_control.height // 2 - self.const_setting_value.targetSquare.height // 2 and y <= gbl_camera_control.height // 2 + self.const_setting_value.targetSquare.height // 2 :
                 #中心付近をクリックすると物体検知処理無効
                 print("objectdetection off")
                 gbl_data_from_telemetry.flg_objectdetection_auto = False
@@ -423,7 +424,7 @@ class TerraUTMSDKMainNode():
         cv2.line(img, (0, centerY), (gbl_camera_control.width, centerY), (175, 175, 175), thickness=1)
         cv2.line(img, (centerX, 0), (centerX, gbl_camera_control.height), (175, 175, 175), thickness=1)
         #ターゲット
-        cv2.rectangle(img,(centerX - gbl_instruction_from_click.targetSquareWidth // 2, centerY - gbl_instruction_from_click.targetSquareHeight // 2),(centerX + gbl_instruction_from_click.targetSquareWidth // 2, centerY + gbl_instruction_from_click.targetSquareHeight // 2),(175,175,175),1)
+        cv2.rectangle(img,(centerX - self.const_setting_value.targetSquare.width // 2, centerY - self.const_setting_value.targetSquare.height // 2),(centerX + self.const_setting_value.targetSquare.width // 2, centerY + self.const_setting_value.targetSquare.height // 2),(175,175,175),1)
         #左上の枠
         cv2.rectangle(img, (0, 0),(60,60),(175,175,175),1)
         #左下の枠
@@ -712,7 +713,7 @@ class TerraUTMSDKMainNode():
                     if result["Error"] == False:
                         tem_a = result["slopes"]
                         base_coordinate = result["base_coordinate"]
-                        prob_wdh = WDH(width=result["width"],height=result["height"],depth=0)
+                        prob_wdh = WH(width=result["width"],height=result["height"])
                         group_prob_start = result["group_box"]["left_top"]
                         group_prob_end   = result["group_box"]["right_bottom"]
 
