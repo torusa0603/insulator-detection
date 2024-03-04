@@ -100,7 +100,6 @@ class TerraUTMSDKMainNode():
     def utmMessageResCallback(self, data):
         try:
             j = json.dumps({"type": data.type, "cmd": data.cmd, "result": data.result, "flight_id": data.flight_id})
-            print(j)
         except Exception as e:
             _, _, exc_tb = sys.exc_info()
             fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
@@ -124,8 +123,6 @@ class TerraUTMSDKMainNode():
 
             if data.objectdetection_mode == 0:
                 gbl_data_from_telemetry.objectdetection_tower_mode = DEFINE.OBJECTDETECTION_TOWER_MODE.taicho
-
-            print("gimbal_pitch: {}, gimbal_roll: {}, gimbal_yaw: {}, gimbal_mode: {}, gimbal_mode_old: {}, mission_status: {}, MISSION_STATUS_PAUSE: {}, objectdetection_status: {}".format(gbl_gimbal_control.pitch,gbl_gimbal_control.roll,gbl_gimbal_control.yaw,gbl_gimbal_control.mode,gbl_gimbal_control.mode_old,mission_status,DEFINE.MISSION_STATUS.pause,objectdetection_status))
 
             if (objectdetection_status != gbl_save_prev_data.objectdetection_status_old):
                 print("モード切替！")
@@ -154,7 +151,7 @@ class TerraUTMSDKMainNode():
 #----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
     def start(self):
-        trhead_detect =  threading.Thread(target=self.objectdetection, daemon=True, args=())
+        trhead_detect =  threading.Thread(target=self.objectDetection, daemon=True, args=())
         trhead_detect.start()
         trhead_show = threading.Thread(target=self.showThread, daemon=True, args=())
         trhead_show.start()
@@ -294,7 +291,6 @@ class TerraUTMSDKMainNode():
             {"type": "ctrl_drone","cmd": "gimbalctrl","target_type": 2,"action_type": 0,"action_value": str(zoomvalue)}
         )
         self.publishUTMMessage(j)
-        print(j)
 
 #----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -303,7 +299,6 @@ class TerraUTMSDKMainNode():
             {"type": "ctrl_drone","cmd": "gimbalctrl","target_type": 2,"action_type": 1,"action_value": str(focusmode) + "," + str(x) + "," + str(y)}
         )
         self.publishUTMMessage(j)
-        print(j)
 
 #----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -319,7 +314,6 @@ class TerraUTMSDKMainNode():
             {"type": "ctrl_drone","cmd": "gimbalctrl","target_type": 2,"action_type": 2,"action_value": str(lensvalue)}
         )
         self.publishUTMMessage(j)
-        print(j)
 
 #----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -328,7 +322,6 @@ class TerraUTMSDKMainNode():
             {"type": "ctrl_drone", "cmd": "fp_resume", "flight_id": "dummy"}
         )
         self.publishUTMMessage(j)
-        print(j)
 
     def publishUTMMessage(self, msg_json : str):
         jd = json.loads(msg_json)
@@ -361,7 +354,7 @@ class TerraUTMSDKMainNode():
             utmMessage.flight_id = jd["flight_id"]
         except KeyError:
             pass
-        print(utmMessage)
+        # print(utmMessage)
 
         self.utm_pub.publish(utmMessage)
         return {'Error': False}
@@ -473,7 +466,6 @@ class TerraUTMSDKMainNode():
             a_base_ymin_rad, max_count_ymin = self.extractSlope(a_array_base_ymin_rad)
             a_base_ymax_rad, max_count_ymax = self.extractSlope(a_array_base_ymax_rad)
             max_count = (max_count_ymin + max_count_ymax) / 2
-            print(f"max_count : {max_count}")
 
             # 2本の傾きの値がかけ離れすぎていたら、、、
             if (abs(a_base_ymin_rad - a_base_ymax_rad) > 3):
@@ -482,7 +474,6 @@ class TerraUTMSDKMainNode():
             a_synthesis_rad = (a_base_ymin_rad + a_base_ymax_rad) / 2
             
             ratio_max_all = max_count / len_prob
-            print(f"ratio_max_all : {ratio_max_all}")
             if ratio_max_all < 0.3:
                 # 複数本並列で碍子が並んでいる場合を想定処理
                 # 高さのmaxとminで各列の端の碍子を取りたいが、うまく取れずにymaxとyminが同一列上にきてしまった場合は弾く
@@ -583,7 +574,7 @@ class TerraUTMSDKMainNode():
         return (count * 10)
 
 
-    def objectdetection(self):
+    def objectDetection(self):
         global gbl_gimbal_control
         global gbl_camera_control
         global gbl_data_from_telemetry
@@ -708,6 +699,7 @@ class TerraUTMSDKMainNode():
                         sum_pitch += pitch
                         if gbl_instruction_from_click.currentCameraLens == DEFINE.CAMERALENS.wide:
                             self.cameraControlChangeLens(DEFINE.OSDK_CAMERA_SOURCE_H20T.zoom)
+                            self.cameraControlZoom(DEFINE.ZOOM_VALUE.Val_2)
                             time.sleep(1)
                             self.cameraControlFocus(2,0.5,0.5)
                             time.sleep(1)
@@ -751,13 +743,14 @@ class TerraUTMSDKMainNode():
                                         cameraSize=WH(width=gbl_camera_control.width, height=gbl_camera_control.height))
                                     self.disp_frame = np.copy(disp_frame)
                                 zoom_detect_process = False
-                                self.cameraControlChangeLens(DEFINE.OSDK_CAMERA_SOURCE_H20T.wide)
-                                time.sleep(2)
                                 self.cameraControlZoom(DEFINE.ZOOM_VALUE.Val_2)
+                                time.sleep(zoom_value / 4)
+                                self.cameraControlChangeLens(DEFINE.OSDK_CAMERA_SOURCE_H20T.wide)
                                 # 角度を復刻しておく
                                 self.gimbalControlYawPitch(yaw = -1*sum_yaw, pitch = -1*sum_pitch)
-                                time.sleep(1)
+                                
                                 #フライトプラン再開
+                                print("▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼物体検知終了▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼")
                                 self.droneControlActionResume()
                             
                                 gbl_data_from_telemetry.flg_objectdetection_auto = False

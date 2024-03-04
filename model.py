@@ -12,7 +12,6 @@ from PIL import Image
 class Model():
     def __init__(self, names, colors, height, width, model_path):
         # モデル読み込み
-        # self.__ort = ort.InferenceSession(model_path, providers=['CPUExecutionProvider'])
         self.__ort = ort.InferenceSession(model_path, providers=['CPUExecutionProvider'])
 
     def inference(self, frame, threshold):
@@ -25,8 +24,6 @@ class Model():
 
         def cv2pil(img_cv):
             im_rgb = cv2.cvtColor(img_cv, cv2.COLOR_BGR2RGB)
-            # img_cv_rgb = img_cv[:, :, ::-1]
-            # return Image.fromarray(img_cv_rgb)
             return im_rgb
         
         def draw_detection(frame, shape, box):
@@ -39,10 +36,8 @@ class Model():
             prob_t_b = box[5]
 
             if prob_t >= threshold:
-                # print([left, top, right, bottom, prob_t, labels[0]])
                 cv2.rectangle(img=frame, pt1=(int(left), int(top)), pt2=(int(right), int(bottom)), color=(0, 255, 0), thickness=1)
             if prob_t_b >= threshold:
-                # print([left, top, right, bottom, prob_t_b, labels[1]])
                 cv2.rectangle(img=frame, pt1=(int(left), int(top)), pt2=(int(right), int(bottom)), color=(255, 0, 0), thickness=1)
             return [int(xc/min_width*width), int(yc/min_height*height), int(w/min_width*width), int(h/min_height*height)]
     
@@ -63,19 +58,8 @@ class Model():
         ret_prob_pix = []
 
         for box in output_boxes:
-            # print("onnx box: {}".format(box))
             ret_prob_pix.append(draw_detection(onnx_frame, frame_shape, box))
 
         elapsed_time = time.time() - start
-        print("{} [Sec]".format(elapsed_time))
-
-        # output_boxes = np.insert(output_boxes, [0], int(0), axis=1)
-        # output_boxes = output_boxes[:, [0, 5, 1, 2, 3, 4]]
-
-        # # Kome用にformatを修正 ONNX(xc, yc, w, h) -> MXNet(x1, y1, x2, y2)
-        # output_boxes[:, 2] = output_boxes[:, 2] - output_boxes[:, 4]/2
-        # output_boxes[:, 3] = output_boxes[:, 3] - output_boxes[:, 5]/2
-        # output_boxes[:, 4] = output_boxes[:, 2] + output_boxes[:, 4]/2
-        # output_boxes[:, 5] = output_boxes[:, 3] + output_boxes[:, 5]/2
 
         return onnx_frame, ret_prob_pix
