@@ -1,23 +1,8 @@
-class INTERVAL:
-    version_202203 = 32
-    version_202204 = 4
-    def __setattr__(self, name, value):
-        pass
+from enum import Enum
 
 class OBJECTDETECTION_TARGET_MODEL:
     resnet50 = "resnet50"      #resnet50_ssd_model
     insulator = "insulator"    #insulator(がいし)
-    def __setattr__(self, name, value):
-        pass
-
-class CLASS_INSULATOR:
-    t_660 = 0    #0に66kvの耐張が入っている前提
-    t_220 = 1
-    k_220 = 2
-    t_500 = 3
-    k_500 = 4
-    t_ = 5       #5に220kv、500kvの耐張が入っている前提
-    k_ = 6       #6に220kv、500kvの懸垂が張っている前提
     def __setattr__(self, name, value):
         pass
 
@@ -55,19 +40,9 @@ class PATH:
     def __setattr__(self, name, value):
         pass
 
-class OBJECTDETECTION_MODE:
-    default_area = "area"
-    default_center = "center"
-    confidence = "confidence"
-    def __setattr__(self, name, value):
-        pass
-
-class OBJECTDETECTION_TOWER_MODE:
-    taicho_220kv = "taicho_220kv"
-    kensui_500kv = "kensui_500kv"
-    taicho_wide_to_zoom = "taicho_wide_to_zoom"  #起動時のデフォルト設定(DJI Onobard SDKから来るテレメトリで変わることがある)
-    def __setattr__(self, name, value):
-        pass
+class OBJECTDETECTION_TOWER_MODE(Enum):
+    taicho = 1
+    kensui = 2
 
 class OBJECTDETECTION_STATUS:
     start =  "objectdetection_start"
